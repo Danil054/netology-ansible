@@ -1,0 +1,23 @@
+---
+  el:
+    hosts:
+      centos7:
+        ansible_connection: docker
+  deb:
+    hosts:
+      ubuntu:
+        ansible_connection: docker
+
+  local:
+    hosts:
+      localhost:
+        ansible_connection: local
+
+  windows:
+    hosts:
+      pc1:
+        ansible_connection: ssh
+        ansible_ssh_password: ***
+        ansible_ssh_user: ***
+        ansible_ssh_host: 192.168.31.244
+        ansible_shell_type: cmd
