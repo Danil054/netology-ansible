@@ -1,0 +1,13 @@
+data_dir: /var/lib/vector
+sources:
+  int_logs:
+    type: internal_logs
+sinks:
+  to_clickhouse:
+    type: clickhouse
+    inputs:
+      - int_logs
+    database: logs
+    endpoint: http://84.201.138.75:8123
+    table: mytable
+
