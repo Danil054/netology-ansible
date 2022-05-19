@@ -1,0 +1,120 @@
+---
+- name: Install Clickhouse
+  hosts: clickhouse
+  gather_facts: true
+  tasks:
+    - block:
+        - name: Get clickhouse distrib
+          ansible.builtin.get_url:
+            url: "https://packages.clickhouse.com/rpm/stable/{{ item }}-{{ clickhouse_version }}.noarch.rpm"
+            dest: "./{{ item }}-{{ clickhouse_version }}.rpm"
+            mode: '644'
+          with_items: "{{ clickhouse_packages }}"
+      rescue:
+        - name: Get clickhouse distrib
+          ansible.builtin.get_url:
+            url: "https://packages.clickhouse.com/rpm/stable/clickhouse-common-static-{{ clickhouse_version }}.x86_64.rpm"
+            dest: "./clickhouse-common-static-{{ clickhouse_version }}.rpm"
+            mode: '644'
+    - name: Install clickhouse packages
+      become: true
+      ansible.builtin.yum:
+        name:
+          - clickhouse-common-static-{{ clickhouse_version }}.rpm
+          - clickhouse-client-{{ clickhouse_version }}.rpm
+          - clickhouse-server-{{ clickhouse_version }}.rpm
+    - name: systemd to reread configs
+      become: true
+      ansible.builtin.systemd:
+        daemon_reload: yes
+    - name: Enable clickhouse service
+      become: true
+      ansible.builtin.systemd:
+        name: clickhouse-server
+        enabled: yes
+    - name: Start clickhouse service
+      become: true
+      ansible.builtin.systemd:
+        name: clickhouse-server
+        state: started
+    - name: Create database
+      ansible.builtin.command: "clickhouse-client -q 'create database logs;'"
+      register: create_db
+      failed_when: create_db.rc != 0 and create_db.rc !=82
+      changed_when: create_db.rc == 0
+
+- name: Install Vector
+  hosts: vector
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Create directory for distr
+      ansible.builtin.file:
+        path: "{{ VECTOR_DOWNLOAD_DIR }}"
+        state: directory
+        mode: '755'
+    - name: Get vector distrib
+      ansible.builtin.get_url:
+        url: "https://packages.timber.io/vector/{{ VECTOR_VER }}/vector-{{ VECTOR_VER }}-x86_64-unknown-linux-musl.tar.gz"
+        dest: "{{ VECTOR_DOWNLOAD_DIR }}/vector-{{ VECTOR_VER }}-x86_64-unknown-linux-musl.tar.gz"
+        mode: '644'
+    - name: Create directory for install vector
+      ansible.builtin.file:
+        path: "{{ VECTOR_DIR }}"
+        state: directory
+        mode: '755'
+    - name: Unpack vector
+      ansible.builtin.unarchive:
+        src: "{{ VECTOR_DOWNLOAD_DIR }}/vector-{{ VECTOR_VER }}-x86_64-unknown-linux-musl.tar.gz"
+        dest: "{{ VECTOR_DIR }}"
+        remote_src: true
+        extra_opts: [--strip-components=2]
+    - name: Copy vector config
+      ansible.builtin.template:
+        src: "templates/vector.yaml.j2"
+        dest: "{{ VECTOR_DIR }}/config/vector.yaml"
+        mode: 0644
+    - name: Create directory for vector data
+      ansible.builtin.file:
+        path: "{{ VECTOR_DATA }}"
+        state: directory
+        mode: '755'
+    - name: Start vector
+      ansible.builtin.shell: "nohup {{ VECTOR_DIR }}/bin/vector --config {{ VECTOR_DIR }}/config/vector.yaml </dev/null >/dev/null 2>&1 &"
+      register: rescmd
+      changed_when: rescmd.rc == 0
+
+- name: Download lighthouse
+  hosts: lighthouse
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Install git
+      ansible.builtin.yum:
+        name: git
+        state: present
+    - name: lighthouse from git
+      ansible.builtin.git:
+        repo: "{{ LH_REPO }}"
+        version: master
+        dest: "{{ LH_DIR }}"
+
+- name: Install nginx
+  hosts: lighthouse
+  become: true
+  tasks:
+    - name: install epel
+      ansible.builtin.yum:
+        name: epel-release
+        state: present
+    - name: install nginx
+      ansible.builtin.yum:
+        name: nginx
+        state: present
+    - name: copy nginx cfg
+      ansible.builtin.template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+        mode: 0644
+    - name: start-nginx
+      ansible.builtin.command: nginx

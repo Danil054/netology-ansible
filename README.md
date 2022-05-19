@@ -1,9 +1,12 @@
-Playbook site.yml:
-Устанавливает пакеты клиента и сервера clickhouse  
-Версия clickhouse и необходимые пакеты задаются в ./group_vars/clickhouse/vars.yml  
-Устанавливает и запускает Vector, переменные для него задаются в ./group_vars/vector/vars.yml, конфиг копируется из темплэйта ./templates/vector.yaml.j2  
-Клонироует lighthouse из его git репозиртария, переменные для него задаются в ./group_vars/lighthouse/vars.yml  
-Устанавливает и запускает nginx, клнфиг для него копируется из темплэйта templates/nginx.conf.j2  
-
+Playbook site.yml:  
+Разбит на три роли:  
+- установка ckickhouse  
+- установка вектора  
+- загрузка lighthouse  
+По окончании выполнения ролей, ставит nginx для работы lighthouse  
+Ссылка на репозиторий плэйбука: (https://github.com/Danil054/netology-ansible)  
+Ссылка на репозитории ролей:  
+(https://github.com/Danil054/vector-role)
+(https://github.com/Danil054/lighthouse-role)
 
 
